@@ -1,0 +1,246 @@
+:root {
+  --club-red: #C31A20;
+  --club-white: #FFFFFF;
+  --club-dark: #333333;
+  --accent-yellow: #ffe082;
+}
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  text-align: center;
+  margin: 0;
+  background: #fff;
+  color: var(--club-dark);
+  min-height: 100vh;
+}
+
+h1 {
+  background: var(--club-red);
+  color: white;
+  padding: 1.5rem 0 1rem;
+  font-size: 2.2rem;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 8px #c31a2022;
+  margin: 0;
+  margin-bottom: 0.1em;
+}
+
+#intervalSection {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px #c31a2022;
+  margin: 2rem auto;
+  max-width: 420px;
+  padding: 2rem 1.2rem;
+  border: 2px solid var(--club-red);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7em;
+}
+
+.hidden {
+  display: none;
+}
+
+.interval-name {
+  font-size: 2.1rem;
+  color: var(--club-red);
+  font-weight: 600;
+}
+
+.timer {
+  font-size: 4.2rem;
+  background: #ffeaea;
+  padding: 0.3em 0.8em;
+  border-radius: 12px;
+  font-family: monospace;
+  box-shadow: 0 2px 8px #c31a2022;
+}
+
+.next-interval {
+  font-style: italic;
+  font-size: 1.1rem;
+  margin-bottom: 0.7em;
+}
+
+button {
+  background: var(--club-red);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7em 1.5em;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:active {
+  transform: scale(0.97);
+  background: #a31518;
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.interval-controls {
+  display: flex;
+  gap: 1em;
+  justify-content: center;
+  margin-top: 0.5em;
+}
+
+/* Week overzicht */
+#weekOverview {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0.2rem 0.5rem 0.2rem 0.5rem;
+}
+
+.day {
+  background: #f0f0f0;
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  width: 140px;
+  min-width: 160px;
+  max-width: 180px;
+  box-sizing: border-box;
+  transition: box-shadow 0.2s;
+  margin-bottom: 0.2rem;
+  flex: 0 1 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3em;
+  height: auto;
+}
+
+.day-label {
+  min-width: 2.2em;
+  font-weight: bold;
+  color: var(--club-red);
+  display: block;
+  margin-bottom: 0.2em;
+}
+
+.day ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+}
+
+.day li {
+  margin: 0;
+  padding: 0.2em 0.5em;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 1px 2px #ccc;
+  cursor: pointer;
+}
+
+.day:hover {
+  box-shadow: 0 4px 16px #c31a2040;
+}
+
+.day-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--club-red);
+  margin-bottom: 0.1em;
+}
+
+.day li:hover {
+  color: #000000;
+  background: #a31518;
+}
+
+/* Mobile date/time */
+.mobile-date-time {
+  display: none;
+  font-size: 1.1rem;
+  color: var(--club-dark);
+  margin: 0 0 0.1em 0;
+}
+
+/* Mobile bottom bar */
+.mobile-bottom-bar {
+  display: none !important;
+}
+
+@media (max-width: 700px) {
+  h1 {
+    margin-bottom: 0.1em;
+  }
+  .mobile-date-time {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+    padding: 0.5em 1em;
+    font-size: 1.1em;
+    border-bottom: 1px solid #eee;
+    box-shadow: 0 2px 6px -4px #888;
+    margin: 0;
+    width: 100vw;
+    left: 50%;
+ 
+    text-align: center;
+  }
+  #weekOverview {
+    margin-top: 0;
+  }
+  #weekOverview {
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.1rem 0.3rem 0 0.3rem;
+  }
+  .day {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.2rem 0.3rem;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.7em;
+  }
+  .day-label {
+    min-width: 2.2em;
+    font-weight: bold;
+    color: var(--club-red);
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0;
+  }
+  .day ul {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1em;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 0 !important;
+  }
+  .main-content {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-bottom-bar {
+    display: none !important;
+  }
+}

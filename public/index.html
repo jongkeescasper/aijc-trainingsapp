@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trainingsschema's AIJC</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-content">
+      <h1>Trainingsschema's AIJC</h1>
+      <div id="currentDateTime" class="mobile-date-time"></div>
+      <div id="intervalSection" style="display:none;">
+        <div class="interval-name" id="intervalName">Wacht op bestand...</div>
+        <div class="timer" id="timer">00:00</div>
+        <div id="nextInterval" style="margin:0.5em 0 1em 0;"></div>
+        <button id="pauseBtn">Pauzeer</button>
+        <button id="stopBtn">Stop training</button>
+        <div class="interval-controls" style="margin:1em 0;">
+          <button id="prevIntervalBtn">Vorige interval</button>
+          <button id="nextIntervalBtn">Volgende interval</button>
+        </div>
+      </div>
+      <div id="weekOverview"></div>
+      <div id="trainingDetail" style="margin-top:2rem;">
+        <div id="trainingDetailPlaceholder">Druk op een training om hem te bekijken en te starten.</div>
+      </div>
+    </div>
+
+  <script>
+    const intervalName = document.getElementById("intervalName");
+    const timerDisplay = document.getElementById("timer");
+    const pauseBtn = document.getElementById("pauseBtn");
+
+    let intervals = [];
+    let current = 0;
+    let timeLeft = 0;
+    let timer;
+    let paused = false;
+    let eventsCache = [];
+    let selectedEventIndex = null;
+    let selectedDayIndex = null;
+    let daysGlobal = [];
+
+    // --- NATUURLIJKERE STEM EN VROUWENSTEM ---
+    let nlVoices = [];
+    function loadVoices() {
+      nlVoices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('nl'));
+    }
+    if (typeof window.speechSynthesis !== 'undefined') {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
+    // --- STEM: ALTIJD GOOGLE NEDERLANDS ALS BESCHIKBAAR ---
+    const speak = (text) => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      const msg = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      // Kies altijd Google Nederlands als beschikbaar
+      let voice = voices.find(v => v.name.toLowerCase().includes('google') && v.lang.startsWith('nl'));
+      // Anders eerste NL stem
+      if (!voice) voice = voices.find(v => v.lang.startsWith('nl'));
+      if (voice) msg.voice = voice;
+      msg.rate = 1;
+      msg.pitch = 1;
+      msg.volume = 1;
+      window.speechSynthesis.speak(msg);
+    };
+
+    // Helper: spreek tekst en voer callback uit als klaar
+    function speakWithCallback(text, cb) {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      const msg = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      // Kies altijd Google Nederlands als beschikbaar
+      let voice = voices.find(v => v.name.toLowerCase().includes('google') && v.lang.startsWith('nl'));
+      // Anders eerste NL stem
+      if (!voice) voice = voices.find(v => v.lang.startsWith('nl'));
+      if (voice) msg.voice = voice;
+      msg.rate = 1;
+      msg.pitch = 1;
+      msg.volume = 1;
+      msg.onend = cb;
+      window.speechSynthesis.speak(msg);
+    }
+
+    const formatTime = (sec) => {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    };
+
+    // --- AUDIOFEEDBACK: PIEP EN FLUIT ---
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 1200;
+    g.gain.value = 0.15;
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.12);
+    o.onended = () => ctx.close();
+  } catch(e) {}
+}
+// --- Globale referentie voor actieve whistle ---
+let activeWhistle = null;
+
+function playWhistle() {
+  // Stop vorige whistle indien nodig
+  if (activeWhistle && typeof activeWhistle.stop === 'function') {
+    try { activeWhistle.stop(); } catch(e) {}
+  }
+  // Gebruik mp3 als die bestaat, anders fallback
+  const audio = new Audio('whistle.mp3');
+  audio.volume = 0.7;
+  activeWhistle = audio;
+  audio.onended = () => { activeWhistle = null; };
+  audio.play().catch(() => {
+    // Fallback: simpele Web Audio API whistle
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.setValueAtTime(2000, ctx.currentTime);
+      o.frequency.linearRampToValueAtTime(1500, ctx.currentTime + 0.3);
+      g.gain.setValueAtTime(0.22, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+      o.connect(g).connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.3);
+      o.onended = () => { ctx.close(); activeWhistle = null; };
+      // Stopfunctie voor Web Audio
+      activeWhistle = { stop: () => { try { o.stop(); ctx.close(); activeWhistle = null; } catch(e) {} } };
+    } catch(e) {}
+  });
+}
+
+    let aankondigingGedaan = false;
+
+    const tick = () => {
+      if (!paused) {
+        timeLeft--;
+        updateTimer();
+        // --- AANKONDIGING VOLGENDE OEFENING BIJ 10s ---
+        if (timeLeft === 10 && current+1 < intervals.length && !aankondigingGedaan) {
+          const volgende = intervals[current+1];
+          let aankondiging = `Volgende oefening: ${volgende.name}`;
+          speak(aankondiging);
+          aankondigingGedaan = true;
+        }
+        // --- PIEP IN LAATSTE 5 SECONDEN ---
+        if (timeLeft > 0 && timeLeft <= 5) {
+          playBeep();
+        }
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          current++;
+          startInterval();
+          showNextInterval();
+        }
+      }
+    };
+
+    const startInterval = () => {
+      aankondigingGedaan = false;
+      if (current >= intervals.length) {
+        intervalName.textContent = "Training voltooid!";
+        speak("Training voltooid");
+        pauseBtn.style.display = "none";
+        updateIntervalControls();
+        document.getElementById('intervalSection').style.display = 'none';
+        document.getElementById('weekOverview').style.display = '';
+        return;
+      }
+      pauseBtn.style.display = "inline-block";
+      pauseBtn.textContent = "Pauzeer";
+      paused = false;
+      const { name, duration } = intervals[current];
+      let durationText, speakText;
+      if (duration >= 120) {
+        const min = Math.round(duration / 60);
+        durationText = `${min} min`;
+        speakText = `Start ${name} voor ${min} minuten`;
+      } else {
+        durationText = `${duration}s`;
+        speakText = `Start ${name} voor ${duration} seconden`;
+      }
+      intervalName.textContent = `${name} (${durationText})`;
+      playWhistle();
+      setTimeout(() => speak(speakText), 500);
+      timeLeft = duration;
+      updateTimer();
+      clearInterval(timer);
+      timer = setInterval(tick, 1000);
+      updateIntervalControls();
+    };
+
+    const updateTimer = () => {
+      timerDisplay.textContent = formatTime(timeLeft);
+    };
+
+    const parseZWO = (xmlText) => {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(xmlText, "application/xml");
+      const steps = xml.querySelectorAll("workout > *");
+      const parsed = [];
+      steps.forEach((step, index) => {
+        const duration = parseFloat(step.getAttribute("Duration"));
+        // Zoek naar eerste textevent message attribuut
+        let name = undefined;
+        const textevent = step.querySelector("textevent[message]");
+        if (textevent) {
+          name = textevent.getAttribute("message");
+        }
+        if (!name) name = step.tagName + " " + (index + 1);
+        parsed.push({ name, duration: Math.floor(duration) });
+      });
+      return parsed;
+    };
+
+    pauseBtn.addEventListener("click", () => {
+      window.speechSynthesis.cancel(); // Stop eventuele spraak direct
+      if (paused) {
+        paused = false;
+        pauseBtn.textContent = "Pauzeer";
+        timer = setInterval(tick, 1000);
+      } else {
+        paused = true;
+        pauseBtn.textContent = "Start";
+        clearInterval(timer);
+      }
+    });
+
+    // ICS ophalen en tonen
+    const weekOverview = document.getElementById("weekOverview");
+    const trainingDetail = document.getElementById("trainingDetail");
+    const ICS_URL = "https://intervals.icu/api/cal/i220177/038ec0fe1f02a8e0.ics";
+
+    // Helper: parse ICS DTSTART/DTEND naar Date
+    function parseICSToDate(str) {
+      // YYYYMMDD of YYYYMMDDTHHMMSSZ
+      if (str.length === 8) {
+        return new Date(str.substr(0,4)+"-"+str.substr(4,2)+"-"+str.substr(6,2));
+      }
+      if (str.length >= 15) {
+        return new Date(str.substr(0,4)+"-"+str.substr(4,2)+"-"+str.substr(6,2)+"T"+str.substr(9,2)+":"+str.substr(11,2)+":"+str.substr(13,2)+"Z");
+      }
+      return new Date(str);
+    }
+
+    // Parse ICS text naar array van events
+    function parseICS(icsText) {
+      const events = [];
+      const lines = icsText.split(/\r?\n/);
+      let event = null;
+      lines.forEach(line => {
+        if (line.startsWith("BEGIN:VEVENT")) event = {};
+        else if (line.startsWith("END:VEVENT")) { if(event) events.push(event); event = null; }
+        else if (event) {
+          const idx = line.indexOf(":");
+          if (idx > -1) {
+            const key = line.substring(0, idx).replace(/;.*/,"");
+            const val = line.substring(idx+1);
+            event[key] = val;
+          }
+        }
+      });
+      return events;
+    }
+
+    // Haal Intervals.icu events op via proxy
+    async function fetchEventsForWeek(start, end) {
+      const url = `http://localhost:3001/events?start=${start}&end=${end}`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      let data = await res.json();
+      // Zet start_date_local om naar YYYY-MM-DD voor matching
+      data.forEach(ev => {
+        ev.localDate = ev.start_date_local ? ev.start_date_local.slice(0,10) : null;
+      });
+      return data;
+    }
+
+    // Haal ICS op en toon weekoverzicht
+    async function showWeekOverview() {
+      const res = await fetch(ICS_URL);
+      const text = await res.text();
+      const icsEvents = parseICS(text);
+      // Filter op deze week (ma-zo)
+      const now = new Date();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - ((now.getDay()+6)%7));
+      monday.setHours(0,0,0,0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate()+6);
+      sunday.setHours(23,59,59,999);
+      // Haal events van Intervals.icu op voor deze week
+      const start = monday.toISOString().slice(0,10);
+      const end = sunday.toISOString().slice(0,10);
+      eventsCache = await fetchEventsForWeek(start, end);
+      // Groepeer ICS-events per dag
+      const days = Array.from({length:7}, (_,i)=>{
+        const d = new Date(monday); d.setDate(monday.getDate()+i);
+        d.setHours(0,0,0,0);
+        return {date: d, events: []};
+      });
+      icsEvents.forEach(ev => {
+        const dt = parseICSToDate(ev.DTSTART);
+        if (dt >= monday && dt <= sunday) {
+          const idx = Math.floor((dt - monday)/(1000*60*60*24));
+          if (days[idx]) days[idx].events.push(ev);
+        }
+      });
+      // Maak overzicht
+      let html = '';
+      days.forEach((day,i) => {
+        const isToday = day.date.toDateString() === now.toDateString();
+        html += `<div class="day" data-day="${i}" style="padding:0.6rem 1rem;border-radius:8px;cursor:pointer;display:flex;align-items:flex-start;gap:0.7em;${isToday?'background:#ffe082;font-weight:bold;':'background:#f0f0f0;'}">
+          <span class="day-label" style="min-width:2.2em;font-weight:bold;color:var(--club-red);display:flex;align-items:flex-start;">${['Ma','Di','Wo','Do','Vr','Za','Zo'][i]}</span>`;
+        if(day.events.length) {
+          html += '<ul style="list-style:none;padding:0;margin:0;flex:1;display:flex;flex-direction:column;gap:0.1em;">';
+          day.events.forEach((ev,j) => {
+            html += `<li data-ev="${j}" style="margin:0;padding:0.2em 0.5em;border-radius:5px;background:#fff;box-shadow:0 1px 2px #ccc;cursor:pointer;">${ev.SUMMARY}</li>`;
+          });
+          html += '</ul>';
+        } else {
+          html += '<div style="color:#aaa;flex:1;">-</div>';
+        }
+        html += '</div>';
+      });
+      weekOverview.innerHTML = html;
+      // Click handler per event
+      Array.from(weekOverview.children).forEach((dayDiv,i)=>{
+        const ul = dayDiv.querySelector('ul');
+        if(ul) {
+          Array.from(ul.children).forEach((li,j)=>{
+            li.onclick = (e)=>{
+              e.stopPropagation();
+              showTrainingDetail(days[i].events[j], i, j);
+            };
+          });
+        }
+      });
+      daysGlobal = days; // Globaal opslaan voor navigatie
+      // Na het vullen van het weekoverzicht, toon placeholder in trainingDetail
+      document.getElementById('trainingDetail').innerHTML = '<div id="trainingDetailPlaceholder">Druk op een training om hem te bekijken en te starten.</div>';
+    }
+
+    // Voeg navigatieknoppen toe aan de detailweergave
+    async function showTrainingDetail(ev, dayIdx = null, evIdx = null) {
+      if (!ev) {
+        trainingDetail.innerHTML = '<i>Geen training gepland</i>';
+        return;
+      }
+      selectedDayIndex = dayIdx;
+      selectedEventIndex = evIdx;
+      // Debug: toon alle properties in console
+      console.log('ICS event:', ev);
+      let navHtml = '';
+      if (dayIdx !== null && evIdx !== null) {
+        navHtml += `<div style="display:flex;justify-content:center;align-items:center;gap:1em;margin-bottom:1em;">`;
+        navHtml += `<button id="prevEventBtn">Vorige</button>`;
+        // Startknop alleen tonen als er geen training actief is en er een match is
+        let eventDate = '';
+        if (ev.DTSTART && ev.DTSTART.length >= 8) {
+          eventDate = ev.DTSTART.substr(0,4)+'-'+ev.DTSTART.substr(4,2)+'-'+ev.DTSTART.substr(6,2);
+        }
+        let matches = eventsCache.filter(e => e.localDate === eventDate);
+        let match = null;
+        if (matches.length > 0 && ev.SUMMARY) {
+          const summary = ev.SUMMARY.trim().toLowerCase();
+          match = matches.find(e => {
+            if (!e.name) return false;
+            const ename = e.name.trim().toLowerCase();
+            return ename.includes(summary) || summary.includes(ename);
+          });
+        }
+        if (!match && matches.length === 1) {
+          match = matches[0];
+        }
+        if (match && document.getElementById('intervalSection').style.display === 'none') {
+          navHtml += `<button id="startTrainingBtn">Start training</button>`;
+        }
+        navHtml += `<button id="nextEventBtn">Volgende</button>`;
+        navHtml += `</div>`;
+      }
+      trainingDetail.innerHTML = `${navHtml}<h2>${ev.SUMMARY}</h2><div id="intervalTable"></div>`;
+      if (dayIdx !== null && evIdx !== null) {
+        document.getElementById('prevEventBtn').onclick = () => navigateEvent(-1);
+        document.getElementById('nextEventBtn').onclick = () => navigateEvent(1);
+      }
+      // Toon tabel met intervallen als er een event gevonden kan worden
+      let eventDate = '';
+      if (ev.DTSTART && ev.DTSTART.length >= 8) {
+        eventDate = ev.DTSTART.substr(0,4)+'-'+ev.DTSTART.substr(4,2)+'-'+ev.DTSTART.substr(6,2);
+      }
+      let matches = eventsCache.filter(e => e.localDate === eventDate);
+      let match = null;
+      if (matches.length > 0 && ev.SUMMARY) {
+        const summary = ev.SUMMARY.trim().toLowerCase();
+        match = matches.find(e => {
+          if (!e.name) return false;
+          const ename = e.name.trim().toLowerCase();
+          return ename.includes(summary) || summary.includes(ename);
+        });
+      }
+      if (!match && matches.length === 1) {
+        match = matches[0];
+      }
+      if (match) {
+        // Haal ZWO op en toon als tabel
+        const zwoUrl = `http://localhost:3001/zwo/${match.id}`;
+        fetch(zwoUrl).then(res => res.ok ? res.text() : Promise.reject('Kon ZWO niet ophalen')).then(zwoText => {
+          const parsed = parseZWO(zwoText);
+          let html = '<table style="margin:1em auto;border-collapse:collapse;">';
+          html += '<tr><th style="padding:0.3em 1em;">Interval</th><th style="padding:0.3em 1em;">Duur</th></tr>';
+          parsed.forEach((step, i) => {
+            let durationText = step.duration >= 120 ? `${Math.round(step.duration/60)} min` : `${step.duration}s`;
+            html += `<tr><td style="padding:0.3em 1em;">${step.name}</td><td style="padding:0.3em 1em;">${durationText}</td></tr>`;
+          });
+          html += '</table>';
+          // Startknop alleen tonen als er geen training actief is
+          if (document.getElementById('intervalSection').style.display === 'none') {
+            html += '<button id="startTrainingBtn">Start training</button>';
+          }
+          document.getElementById('intervalTable').innerHTML = html;
+          // Event listener voor startknop
+          const startBtn = document.getElementById('startTrainingBtn');
+          if (startBtn && match) {
+            const zwoUrl = `http://localhost:3001/zwo/${match.id}`;
+            startBtn.onclick = async () => {
+              const zwoText = await fetch(zwoUrl).then(res => res.text());
+              intervals = parseZWO(zwoText);
+              current = 0;
+              document.getElementById('intervalSection').style.display = '';
+              document.getElementById('weekOverview').style.display = 'none';
+              startInterval();
+              window.scrollTo({top: intervalName.offsetTop-40, behavior:'smooth'});
+              showNextInterval();
+              updateIntervalControls();
+            };
+          }
+        }).catch(() => {
+          document.getElementById('intervalTable').innerHTML = '<i>Geen intervalgegevens beschikbaar</i>';
+        });
+      }
+    }
+
+    // Navigatie-functie voor vorige/volgende event
+    function navigateEvent(direction) {
+      if (selectedDayIndex === null || selectedEventIndex === null) return;
+      let dayIdx = selectedDayIndex;
+      let evIdx = selectedEventIndex + direction;
+      // Zoek volgende/vorige event in week
+      while (dayIdx >= 0 && dayIdx < daysGlobal.length) {
+        if (evIdx >= 0 && evIdx < daysGlobal[dayIdx].events.length) {
+          showTrainingDetail(daysGlobal[dayIdx].events[evIdx], dayIdx, evIdx);
+          return;
+        } else if (evIdx < 0) {
+          dayIdx--;
+          if (dayIdx >= 0) evIdx = daysGlobal[dayIdx].events.length - 1;
+        } else if (evIdx >= daysGlobal[dayIdx].events.length) {
+          dayIdx++;
+          evIdx = 0;
+        } else {
+          break;
+        }
+      }
+    }
+
+    function showNextInterval() {
+      const nextDiv = document.getElementById('nextInterval');
+      if (!intervals.length || current+1 >= intervals.length) {
+        nextDiv.textContent = 'Geen volgende interval.';
+        return;
+      }
+      const { name, duration } = intervals[current+1];
+      let durationText = duration >= 120 ? `${Math.round(duration/60)} min` : `${duration}s`;
+      nextDiv.textContent = `Volgende: ${name} (${durationText})`;
+    }
+
+    // Voeg event listeners toe voor interval skippen
+    const prevIntervalBtn = document.getElementById("prevIntervalBtn");
+    const nextIntervalBtn = document.getElementById("nextIntervalBtn");
+    prevIntervalBtn.onclick = () => {
+      if (intervals.length && current > 0) {
+        // Stop spraak en geluiden
+        window.speechSynthesis.cancel();
+        if (activeWhistle && typeof activeWhistle.stop === 'function') {
+          try { activeWhistle.stop(); } catch(e) {}
+        }
+        current--;
+        // Zet timer op 5s voor het einde van het vorige interval
+        const prevDuration = intervals[current].duration;
+        timeLeft = prevDuration > 5 ? 5 : prevDuration;
+        updateTimer();
+        // Herstart de interval-timer als hij gepauzeerd was
+        if (paused) {
+          paused = false;
+          pauseBtn.textContent = "Pauzeer";
+          timer = setInterval(tick, 1000);
+        }
+        showNextInterval();
+        updateIntervalControls();
+      }
+    };
+    nextIntervalBtn.onclick = () => {
+      if (intervals.length && current < intervals.length-1) {
+        // Stop spraak en geluiden
+        window.speechSynthesis.cancel();
+        if (activeWhistle && typeof activeWhistle.stop === 'function') {
+          try { activeWhistle.stop(); } catch(e) {}
+        }
+        // Spoel door tot 5 seconden voor het einde van het huidige interval
+        if (timeLeft > 5) {
+          timeLeft = 5;
+          updateTimer();
+        } else {
+          // Minder dan 5s: ga gewoon naar het volgende interval
+          current++;
+          startInterval();
+          showNextInterval();
+        }
+      }
+    };
+
+    // Verberg/disable intervalknoppen als er geen training actief is
+    function updateIntervalControls() {
+      const show = intervals.length > 0 && current < intervals.length;
+      prevIntervalBtn.disabled = !show || current === 0;
+      nextIntervalBtn.disabled = !show || current >= intervals.length-1;
+    }
+
+    // Toon huidige datum en tijd op mobiel
+    function updateMobileDateTime() {
+      const el = document.getElementById('currentDateTime');
+      if (!el) return;
+      const now = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const dateStr = now.toLocaleDateString('nl-NL', options);
+      const timeStr = now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+      el.textContent = `${dateStr} – ${timeStr}`;
+    }
+    updateMobileDateTime();
+    setInterval(updateMobileDateTime, 10000);
+
+    showWeekOverview();
+
+    // Voeg event listener toe voor stopBtn
+    const stopBtn = document.getElementById("stopBtn");
+    stopBtn.onclick = function() {
+      window.speechSynthesis.cancel(); // Stop eventuele spraak direct
+      clearInterval(timer);
+      intervals = [];
+      current = 0;
+      document.getElementById('intervalSection').style.display = 'none';
+      document.getElementById('weekOverview').style.display = '';
+      intervalName.textContent = "Wacht op bestand...";
+      timerDisplay.textContent = "00:00";
+      document.getElementById('nextInterval').textContent = '';
+      pauseBtn.textContent = "Pauzeer";
+      pauseBtn.style.display = "inline-block";
+      updateIntervalControls();
+    }
+  </script>
+</body>
+</html>
