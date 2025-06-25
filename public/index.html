@@ -150,6 +150,11 @@ function playWhistle() {
       if (!paused) {
         timeLeft--;
         updateTimer();
+        // Toon countdown als notificatie op mobiel/desktop
+        if (intervals.length && current < intervals.length) {
+          const { name } = intervals[current];
+          showNotification("Interval bezig", `${name} (${formatTime(timeLeft)})`);
+        }
         // --- AANKONDIGING VOLGENDE OEFENING BIJ 10s ---
         if (timeLeft === 10 && current+1 < intervals.length && !aankondigingGedaan) {
           const volgende = intervals[current+1];
@@ -171,10 +176,15 @@ function playWhistle() {
     };
 
     // --- BROWSER NOTIFICATIES (ook mobiel) ---
+let activeNotification = null;
 function showNotification(title, body) {
   if ('Notification' in window) {
     if (Notification.permission === "granted") {
-      new Notification(title, { body });
+      // Sluit vorige notificatie als mogelijk (niet overal ondersteund)
+      if (activeNotification && typeof activeNotification.close === "function") {
+        try { activeNotification.close(); } catch(e) {}
+      }
+      activeNotification = new Notification(title, { body });
     }
   }
 }
@@ -193,6 +203,11 @@ if ('Notification' in window && Notification.permission !== "granted" && Notific
         updateIntervalControls();
         document.getElementById('intervalSection').style.display = 'none';
         document.getElementById('weekOverview').style.display = '';
+        // Sluit actieve notificatie bij einde training
+        if (activeNotification && typeof activeNotification.close === "function") {
+          try { activeNotification.close(); } catch(e) {}
+          activeNotification = null;
+        }
         return;
       }
       pauseBtn.style.display = "inline-block";
@@ -211,7 +226,7 @@ if ('Notification' in window && Notification.permission !== "granted" && Notific
       intervalName.textContent = `${name} (${durationText})`;
       playWhistle();
       setTimeout(() => speak(speakText), 500);
-      // Toon notificatie op mobiel/desktop
+      // Toon notificatie op mobiel/desktop met starttijd
       showNotification("Interval gestart", `${name} (${durationText})`);
       timeLeft = duration;
       updateTimer();
