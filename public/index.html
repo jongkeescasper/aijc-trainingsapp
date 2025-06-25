@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trainingsschema's AIJC</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="facicon.ico" type="image/x-icon" />
 </head>
 <body>
     <div class="main-content">
@@ -170,6 +169,19 @@ function playWhistle() {
       }
     };
 
+    // --- NOTIFICATIES VOOR TELEFOONS ---
+function sendNotification(title, body) {
+  if (Notification.permission === "granted") {
+    new Notification(title, { body });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        new Notification(title, { body });
+      }
+    });
+  }
+}
+
     const startInterval = () => {
       aankondigingGedaan = false;
       if (current >= intervals.length) {
@@ -197,6 +209,8 @@ function playWhistle() {
       intervalName.textContent = `${name} (${durationText})`;
       playWhistle();
       setTimeout(() => speak(speakText), 500);
+      // Stuur notificatie
+      sendNotification("Training gestart", `Oefening: ${name} (${durationText})`);
       timeLeft = duration;
       updateTimer();
       clearInterval(timer);
@@ -279,7 +293,7 @@ function playWhistle() {
 
     // Haal Intervals.icu events op via proxy
     async function fetchEventsForWeek(start, end) {
-      const url = `https://aijc-trainingsapp.onrender.com/events?start=${start}&end=${end}`;
+      const url = `http://localhost:3001/events?start=${start}&end=${end}`;
       const res = await fetch(url);
       if (!res.ok) return [];
       let data = await res.json();
@@ -418,7 +432,7 @@ function playWhistle() {
       }
       if (match) {
         // Haal ZWO op en toon als tabel
-        const zwoUrl = `https://aijc-trainingsapp.onrender.com/zwo/${match.id}`;
+        const zwoUrl = `http://localhost:3001/zwo/${match.id}`;
         fetch(zwoUrl).then(res => res.ok ? res.text() : Promise.reject('Kon ZWO niet ophalen')).then(zwoText => {
           const parsed = parseZWO(zwoText);
           let html = '<table style="margin:1em auto;border-collapse:collapse;">';
@@ -436,7 +450,7 @@ function playWhistle() {
           // Event listener voor startknop
           const startBtn = document.getElementById('startTrainingBtn');
           if (startBtn && match) {
-            const zwoUrl = `https://aijc-trainingsapp.onrender.com/zwo/${match.id}`;
+            const zwoUrl = `http://localhost:3001/zwo/${match.id}`;
             startBtn.onclick = async () => {
               const zwoText = await fetch(zwoUrl).then(res => res.text());
               intervals = parseZWO(zwoText);
