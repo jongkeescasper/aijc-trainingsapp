@@ -170,6 +170,20 @@ function playWhistle() {
       }
     };
 
+    // --- BROWSER NOTIFICATIES (ook mobiel) ---
+function showNotification(title, body) {
+  if ('Notification' in window) {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  }
+}
+
+// Vraag notificatie-permissie bij laden pagina
+if ('Notification' in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+  Notification.requestPermission();
+}
+
     const startInterval = () => {
       aankondigingGedaan = false;
       if (current >= intervals.length) {
@@ -197,6 +211,8 @@ function playWhistle() {
       intervalName.textContent = `${name} (${durationText})`;
       playWhistle();
       setTimeout(() => speak(speakText), 500);
+      // Toon notificatie op mobiel/desktop
+      showNotification("Interval gestart", `${name} (${durationText})`);
       timeLeft = duration;
       updateTimer();
       clearInterval(timer);
