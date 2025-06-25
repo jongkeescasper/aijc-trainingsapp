@@ -417,7 +417,7 @@ function playWhistle() {
       }
       if (match) {
         // Haal ZWO op en toon als tabel
-        const zwoUrl = `https://aijc-proxy.onrender.com/zwo/${match.id}`;
+        const zwoUrl = `https://aijc-trainingsapp.onrender.com/zwo/${match.id}`;
         fetch(zwoUrl).then(res => res.ok ? res.text() : Promise.reject('Kon ZWO niet ophalen')).then(zwoText => {
           const parsed = parseZWO(zwoText);
           let html = '<table style="margin:1em auto;border-collapse:collapse;">';
