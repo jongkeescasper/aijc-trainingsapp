@@ -435,7 +435,7 @@ function playWhistle() {
           // Event listener voor startknop
           const startBtn = document.getElementById('startTrainingBtn');
           if (startBtn && match) {
-            const zwoUrl = `http://localhost:3001/zwo/${match.id}`;
+            const zwoUrl = `https://aijc-trainingsapp.onrender.com/zwo/${match.id}`;
             startBtn.onclick = async () => {
               const zwoText = await fetch(zwoUrl).then(res => res.text());
               intervals = parseZWO(zwoText);
