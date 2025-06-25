@@ -278,7 +278,7 @@ function playWhistle() {
 
     // Haal Intervals.icu events op via proxy
     async function fetchEventsForWeek(start, end) {
-      const url = `http://localhost:3001/events?start=${start}&end=${end}`;
+      const url = `https://aijc-trainingsapp.onrender.com/events?start=${start}&end=${end}`;
       const res = await fetch(url);
       if (!res.ok) return [];
       let data = await res.json();
