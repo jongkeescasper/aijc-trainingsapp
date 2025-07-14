@@ -203,13 +203,10 @@ function playWhistle() {
       if (!notificationReg) return;
       const title = `AIJC - ${trainingName}`;
       const body = `${oefening} | Resterende tijd: ${tijd}`;
-      notificationReg.getNotifications({ tag: 'training-timer' }).then(notifs => {
-        notifs.forEach(n => n.close());
-        notificationReg.showNotification(title, {
-          body: body,
-          icon: 'facicon.ico',
-          tag: 'training-timer'
-        });
+      notificationReg.showNotification(title, {
+        body: body,
+        icon: 'facicon.ico',
+        tag: 'training-timer'
       });
     }
 
@@ -606,6 +603,7 @@ function playWhistle() {
         // Zet timer op 5s voor het einde van het vorige interval
         const prevDuration = intervals[current].duration;
         timeLeft = prevDuration > 5 ? 5 : prevDuration;
+        intervalEndTime = Date.now() + timeLeft * 1000;
         updateTimer();
         // Herstart de interval-timer als hij gepauzeerd was
         if (paused) {
@@ -627,6 +625,7 @@ function playWhistle() {
         // Spoel door tot 5 seconden voor het einde van het huidige interval
         if (timeLeft > 5) {
           timeLeft = 5;
+          intervalEndTime = Date.now() + timeLeft * 1000;
           updateTimer();
         } else {
           // Minder dan 5s: ga gewoon naar het volgende interval
