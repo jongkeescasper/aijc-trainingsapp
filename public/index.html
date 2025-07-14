@@ -9,6 +9,10 @@
 </head>
 <body>
     <div class="main-content">
+      <div id="timerOverlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:rgba(0,0,0,0.7);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:2em;pointer-events:none;">
+        <div>⏱️ Timer loopt door</div>
+        <div id="overlayTimer" style="font-size:1.5em;margin-top:0.5em;"></div>
+      </div>
       <h1>Trainingsschema's AIJC</h1>
       <div id="currentDateTime" class="mobile-date-time"></div>
       <div id="intervalSection" style="display:none;">
@@ -144,12 +148,42 @@ function playWhistle() {
   });
 }
 
+
+    // --- WAKE LOCK API ---
+    let wakeLock = null;
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch(e) { /* niet ondersteund of geweigerd */ }
+    }
+    function releaseWakeLock() {
+      if (wakeLock) { try { wakeLock.release(); } catch(e) {} wakeLock = null; }
+    }
+
+    // --- TIMER OVERLAY ---
+    const timerOverlay = document.getElementById('timerOverlay');
+    const overlayTimer = document.getElementById('overlayTimer');
+    function showTimerOverlay(show) {
+      timerOverlay.style.display = show ? 'flex' : 'none';
+    }
+    function updateOverlayTimer() {
+      overlayTimer.textContent = formatTime(timeLeft > 0 ? timeLeft : 0);
+    }
+
     let aankondigingGedaan = false;
 
+
+    // --- TIMER MET ECHTE KLOK ---
+    let intervalEndTime = null;
     const tick = () => {
       if (!paused) {
-        timeLeft--;
+        // Corrigeer met echte tijd
+        const now = Date.now();
+        timeLeft = Math.round((intervalEndTime - now) / 1000);
         updateTimer();
+        updateOverlayTimer();
         // --- AANKONDIGING VOLGENDE OEFENING BIJ 10s ---
         if (timeLeft === 10 && current+1 < intervals.length && !aankondigingGedaan) {
           const volgende = intervals[current+1];
@@ -179,6 +213,8 @@ function playWhistle() {
         updateIntervalControls();
         document.getElementById('intervalSection').style.display = 'none';
         document.getElementById('weekOverview').style.display = '';
+        showTimerOverlay(false);
+        releaseWakeLock();
         return;
       }
       pauseBtn.style.display = "inline-block";
@@ -198,7 +234,11 @@ function playWhistle() {
       playWhistle();
       setTimeout(() => speak(speakText), 500);
       timeLeft = duration;
+      intervalEndTime = Date.now() + duration * 1000;
       updateTimer();
+      updateOverlayTimer();
+      showTimerOverlay(true);
+      requestWakeLock();
       clearInterval(timer);
       timer = setInterval(tick, 1000);
       updateIntervalControls();
@@ -232,11 +272,17 @@ function playWhistle() {
       if (paused) {
         paused = false;
         pauseBtn.textContent = "Pauzeer";
+        // Corrigeer eindtijd zodat resterende tijd klopt
+        intervalEndTime = Date.now() + timeLeft * 1000;
         timer = setInterval(tick, 1000);
+        showTimerOverlay(true);
+        requestWakeLock();
       } else {
         paused = true;
         pauseBtn.textContent = "Start";
         clearInterval(timer);
+        showTimerOverlay(false);
+        releaseWakeLock();
       }
     });
 
@@ -569,6 +615,8 @@ function playWhistle() {
       document.getElementById('nextInterval').textContent = '';
       pauseBtn.textContent = "Pauzeer";
       pauseBtn.style.display = "inline-block";
+      showTimerOverlay(false);
+      releaseWakeLock();
       updateIntervalControls();
     }
   </script>
