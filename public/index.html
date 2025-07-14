@@ -172,23 +172,58 @@ function playWhistle() {
     }
 
     // --- PUSH NOTIFICATIE FUNCTIE ---
-    function showTrainingNotification(trainingName, oefening, tijd) {
+    // --- PUSH NOTIFICATIE FUNCTIE MET UPDATES ---
+    let notificationInterval = null;
+    let notificationReg = null;
+    let notificationActive = false;
+    function showTrainingNotification(trainingName, oefening, tijdSec) {
       if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
       Notification.requestPermission().then(function(result) {
         if (result === 'granted') {
           navigator.serviceWorker.getRegistration().then(function(reg) {
             if (reg) {
-              const title = `AIJC - ${trainingName}`;
-              const body = `${oefening} | Resterende tijd: ${tijd}`;
-              reg.showNotification(title, {
-                body: body,
-                icon: 'facicon.ico',
-                tag: 'training-timer'
-              });
+              notificationReg = reg;
+              notificationActive = true;
+              updateTrainingNotification(trainingName, oefening, tijdSec);
+              if (notificationInterval) clearInterval(notificationInterval);
+              notificationInterval = setInterval(() => {
+                if (!notificationActive) return;
+                // Haal actuele tijdLeft en oefening
+                let t = typeof timeLeft === 'number' ? timeLeft : tijdSec;
+                let formatted = formatTime(t > 0 ? t : 0);
+                updateTrainingNotification(trainingName, oefening, formatted);
+              }, 1000);
             }
           });
         }
       });
+    }
+
+    function updateTrainingNotification(trainingName, oefening, tijd) {
+      if (!notificationReg) return;
+      const title = `AIJC - ${trainingName}`;
+      const body = `${oefening} | Resterende tijd: ${tijd}`;
+      notificationReg.getNotifications({ tag: 'training-timer' }).then(notifs => {
+        notifs.forEach(n => n.close());
+        notificationReg.showNotification(title, {
+          body: body,
+          icon: 'facicon.ico',
+          tag: 'training-timer'
+        });
+      });
+    }
+
+    function closeTrainingNotification() {
+      notificationActive = false;
+      if (notificationInterval) {
+        clearInterval(notificationInterval);
+        notificationInterval = null;
+      }
+      if (notificationReg) {
+        notificationReg.getNotifications({ tag: 'training-timer' }).then(notifs => {
+          notifs.forEach(n => n.close());
+        });
+      }
     }
 
     let aankondigingGedaan = false;
@@ -202,7 +237,6 @@ function playWhistle() {
         const now = Date.now();
         timeLeft = Math.round((intervalEndTime - now) / 1000);
         updateTimer();
-        updateOverlayTimer();
         // --- AANKONDIGING VOLGENDE OEFENING BIJ 10s ---
         if (timeLeft === 10 && current+1 < intervals.length && !aankondigingGedaan) {
           const volgende = intervals[current+1];
@@ -223,6 +257,7 @@ function playWhistle() {
       }
     };
 
+    // Herstel bug: verwijder aanroep naar niet-bestaande updateOverlayTimer()
     const startInterval = () => {
       aankondigingGedaan = false;
       if (current >= intervals.length) {
@@ -233,6 +268,7 @@ function playWhistle() {
         document.getElementById('intervalSection').style.display = 'none';
         document.getElementById('weekOverview').style.display = '';
         releaseWakeLock();
+        closeTrainingNotification();
         return;
       }
       pauseBtn.style.display = "inline-block";
@@ -256,12 +292,11 @@ function playWhistle() {
       updateTimer();
       // Push notificatie bij start van training (alleen bij eerste interval)
       if (current === 0) {
-        // Probeer de naam van de training te pakken uit de weekoverzicht selectie
         let trainingTitle = 'Training';
         if (typeof selectedDayIndex === 'number' && typeof selectedEventIndex === 'number' && daysGlobal[selectedDayIndex] && daysGlobal[selectedDayIndex].events[selectedEventIndex]) {
           trainingTitle = daysGlobal[selectedDayIndex].events[selectedEventIndex].SUMMARY || 'Training';
         }
-        showTrainingNotification(trainingTitle, name, durationText);
+        showTrainingNotification(trainingTitle, name, duration);
       }
       requestWakeLock();
       clearInterval(timer);
@@ -639,6 +674,7 @@ function playWhistle() {
       pauseBtn.textContent = "Pauzeer";
       pauseBtn.style.display = "inline-block";
       releaseWakeLock();
+      closeTrainingNotification();
       updateIntervalControls();
     }
   </script>
