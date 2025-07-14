@@ -172,12 +172,14 @@ function playWhistle() {
     }
 
     // --- PUSH NOTIFICATIE FUNCTIE ---
-    function showTrainingNotification(title, body) {
+    function showTrainingNotification(trainingName, oefening, tijd) {
       if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
       Notification.requestPermission().then(function(result) {
         if (result === 'granted') {
           navigator.serviceWorker.getRegistration().then(function(reg) {
             if (reg) {
+              const title = `AIJC - ${trainingName}`;
+              const body = `${oefening} | Resterende tijd: ${tijd}`;
               reg.showNotification(title, {
                 body: body,
                 icon: 'facicon.ico',
@@ -254,7 +256,12 @@ function playWhistle() {
       updateTimer();
       // Push notificatie bij start van training (alleen bij eerste interval)
       if (current === 0) {
-        showTrainingNotification('Timer is gestart!', 'Je timer loopt nu!');
+        // Probeer de naam van de training te pakken uit de weekoverzicht selectie
+        let trainingTitle = 'Training';
+        if (typeof selectedDayIndex === 'number' && typeof selectedEventIndex === 'number' && daysGlobal[selectedDayIndex] && daysGlobal[selectedDayIndex].events[selectedEventIndex]) {
+          trainingTitle = daysGlobal[selectedDayIndex].events[selectedEventIndex].SUMMARY || 'Training';
+        }
+        showTrainingNotification(trainingTitle, name, durationText);
       }
       requestWakeLock();
       clearInterval(timer);
