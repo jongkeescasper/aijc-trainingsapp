@@ -583,9 +583,9 @@ function playWhistle() {
             }
             const intervalSection = document.getElementById('intervalSection');
             console.log('[DEBUG] intervalSection style.display:', intervalSection.style.display, 'offsetHeight:', intervalSection.offsetHeight, 'offsetParent:', intervalSection.offsetParent);
+            // Forceer click handlers altijd, log waarschuwing als niet zichtbaar
             if (intervalSection.style.display === 'none' || intervalSection.offsetHeight === 0 || !intervalSection.offsetParent) {
-              console.log('[DEBUG] intervalSection niet zichtbaar (display/height/parent), geen click handlers');
-              return;
+              console.warn('[DEBUG] intervalSection niet zichtbaar (display/height/parent), click handlers worden toch gezet!');
             }
             const rows = table.querySelectorAll('tr');
             console.log('[DEBUG] intervalTable rows gevonden:', rows.length);
