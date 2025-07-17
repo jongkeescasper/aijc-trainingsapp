@@ -88,7 +88,25 @@
       msg.onend = cb;
       window.speechSynthesis.speak(msg);
     }
+        // Markeer huidig interval in de tabel onderaan
+    function updateIntervalTableHighlight() {
+      const table = document.getElementById('intervalTable');
+      if (!table) return;
+      // Zoek alle rijen behalve de header
+      const rows = table.querySelectorAll('tr');
+      rows.forEach((row, idx) => {
+        if (idx === 0) return; // header
+        if (idx-1 === current) {
+          row.style.fontWeight = 'bold';
+          row.style.background = '#ffe082';
+        } else {
+          row.style.fontWeight = '';
+          row.style.background = '';
+        }
+      });
+    }
 
+    // Helper: formatteer tijd in MM:SS
     const formatTime = (sec) => {
       const m = String(Math.floor(sec / 60)).padStart(2, '0');
       const s = String(sec % 60).padStart(2, '0');
