@@ -562,8 +562,26 @@ function playWhistle() {
               current = 0;
               document.getElementById('intervalSection').style.display = '';
               document.getElementById('weekOverview').style.display = 'none';
-              startInterval();
-              window.scrollTo({top: intervalName.offsetTop-40, behavior:'smooth'});
+              // Altijd 5s aftellen voor de eerste interval
+              let firstDuration = intervals[0]?.duration || 0;
+              timeLeft = firstDuration > 5 ? 5 : firstDuration;
+              intervalEndTime = Date.now() + timeLeft * 1000;
+              // Update intervalnaam direct
+              const { name, duration: dur } = intervals[0];
+              let durationText = dur >= 120 ? `${Math.round(dur/60)} min` : `${dur}s`;
+              intervalName.textContent = `${name} (${durationText})`;
+              // Update notificatie direct
+              let trainingTitle = 'Training';
+              if (typeof selectedDayIndex === 'number' && typeof selectedEventIndex === 'number' && daysGlobal[selectedDayIndex] && daysGlobal[selectedDayIndex].events[selectedEventIndex]) {
+                trainingTitle = daysGlobal[selectedDayIndex].events[selectedEventIndex].SUMMARY || 'Training';
+              }
+              updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
+              updateTimer();
+              // Herstart de interval-timer als hij gepauzeerd was
+              clearInterval(timer);
+              paused = false;
+              pauseBtn.textContent = "Pauzeer";
+              timer = setInterval(tick, 1000);
               showNextInterval();
               updateIntervalControls();
               updateIntervalTableHighlight();
@@ -660,14 +678,18 @@ function playWhistle() {
     const prevIntervalBtn = document.getElementById("prevIntervalBtn");
     const nextIntervalBtn = document.getElementById("nextIntervalBtn");
     prevIntervalBtn.onclick = () => {
-      if (intervals.length && current > 0) {
+      if (intervals.length) {
         // Stop spraak en geluiden
         window.speechSynthesis.cancel();
         if (activeWhistle && typeof activeWhistle.stop === 'function') {
           try { activeWhistle.stop(); } catch(e) {}
         }
-        current--;
-        // Zet timer op 5s voor het einde van het vorige interval
+        if (current > 0) {
+          current--;
+        } else {
+          current = 0;
+        }
+        // Zet timer op 5s voor het gekozen interval (ook voor eerste)
         const prevDuration = intervals[current].duration;
         timeLeft = prevDuration > 5 ? 5 : prevDuration;
         intervalEndTime = Date.now() + timeLeft * 1000;
