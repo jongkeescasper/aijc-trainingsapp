@@ -589,7 +589,8 @@ function playWhistle() {
                 if (timeLeft <= 0) {
                   clearInterval(timer);
                   // Nu de echte interval starten
-                  timeLeft = firstDuration;
+                  current = 1;
+                  timeLeft = intervals[current].duration;
                   intervalEndTime = Date.now() + timeLeft * 1000;
                   intervalName.textContent = `${name} (${durationText})`;
                   updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
