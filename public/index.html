@@ -255,7 +255,7 @@ function playWhistle() {
     };
 
     // Herstel bug: verwijder aanroep naar niet-bestaande updateOverlayTimer()
-    const startInterval = () => {
+    var startInterval = function() {
       aankondigingGedaan = false;
       if (current >= intervals.length) {
         intervalName.textContent = "Training voltooid!";
