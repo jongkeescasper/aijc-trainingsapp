@@ -572,44 +572,27 @@ function playWhistle() {
           // Maak intervallen klikbaar tijdens actieve training
           setTimeout(() => {
             let tableElem = document.getElementById('intervalTable');
-            if (!tableElem) {
-              console.log('[DEBUG] Geen intervalTable element gevonden');
-              return;
-            }
+            if (!tableElem) return;
             let table = tableElem.querySelector('table');
-            if (!table) {
-              console.log('[DEBUG] Geen table gevonden in intervalTable');
-              return;
-            }
+            if (!table) return;
             const intervalSection = document.getElementById('intervalSection');
-            console.log('[DEBUG] intervalSection style.display:', intervalSection.style.display, 'offsetHeight:', intervalSection.offsetHeight, 'offsetParent:', intervalSection.offsetParent);
-            // Forceer click handlers altijd, log waarschuwing als niet zichtbaar
-            if (intervalSection.style.display === 'none' || intervalSection.offsetHeight === 0 || !intervalSection.offsetParent) {
-              console.warn('[DEBUG] intervalSection niet zichtbaar (display/height/parent), click handlers worden toch gezet!');
-            }
+            // Forceer click handlers altijd
             const rows = table.querySelectorAll('tr');
-            console.log('[DEBUG] intervalTable rows gevonden:', rows.length);
             for (let idx = 1; idx < rows.length; idx++) {
               rows[idx].onclick = function(e) {
-                console.log('[DEBUG] Intervalrij klik:', { idx, intervalsLength: intervals.length, current, paused });
                 e.preventDefault();
                 e.stopPropagation();
-                if (!intervals.length) {
-                  console.log('[DEBUG] Geen intervallen geladen, abort.');
-                  return;
-                }
+                if (!intervals.length) return;
                 // Stop spraak en geluiden
                 window.speechSynthesis.cancel();
                 if (activeWhistle && typeof activeWhistle.stop === 'function') {
-                  try { activeWhistle.stop(); } catch(e) { console.log('[DEBUG] Fout bij stoppen whistle:', e); }
+                  try { activeWhistle.stop(); } catch(e) {}
                 }
                 // Spoel direct door naar 5s voor het gekozen interval
                 current = idx - 1;
-                console.log('[DEBUG] Gekozen interval:', current, intervals[current]);
                 const duration = intervals[current].duration;
                 timeLeft = duration > 5 ? 5 : duration;
                 intervalEndTime = Date.now() + timeLeft * 1000;
-                console.log('[DEBUG] timeLeft en intervalEndTime:', timeLeft, intervalEndTime);
                 // Update intervalnaam direct
                 const { name, duration: dur } = intervals[current];
                 let durationText = dur >= 120 ? `${Math.round(dur/60)} min` : `${dur}s`;
@@ -619,7 +602,6 @@ function playWhistle() {
                 if (typeof selectedDayIndex === 'number' && typeof selectedEventIndex === 'number' && daysGlobal[selectedDayIndex] && daysGlobal[selectedDayIndex].events[selectedEventIndex]) {
                   trainingTitle = daysGlobal[selectedDayIndex].events[selectedEventIndex].SUMMARY || 'Training';
                 }
-                console.log('[DEBUG] Notificatie update:', trainingTitle, name, formatTime(timeLeft));
                 updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
                 updateTimer();
                 // Herstart de interval-timer als hij gepauzeerd was
@@ -630,7 +612,6 @@ function playWhistle() {
                 showNextInterval();
                 updateIntervalControls();
                 updateIntervalTableHighlight();
-                console.log('[DEBUG] Na doorspoelen:', { current, timeLeft, paused });
               };
             }
             // Markeer huidig interval direct na renderen
