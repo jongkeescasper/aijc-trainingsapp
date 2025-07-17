@@ -544,7 +544,7 @@ function playWhistle() {
           html += '<tr><th style="padding:0.3em 1em;">Interval</th><th style="padding:0.3em 1em;">Duur</th></tr>';
           parsed.forEach((step, i) => {
             let durationText = step.duration >= 120 ? `${Math.round(step.duration/60)} min` : `${step.duration}s`;
-            html += `<tr><td style="padding:0.3em 1em;">${step.name}</td><td style="padding:0.3em 1em;">${durationText}</td></tr>`;
+            html += `<tr data-interval="${i}" style="cursor:pointer;"><td style="padding:0.3em 1em;">${step.name}</td><td style="padding:0.3em 1em;">${durationText}</td></tr>`;
           });
           html += '</table>';
           // Startknop alleen tonen als er geen training actief is
@@ -568,25 +568,53 @@ function playWhistle() {
               updateIntervalControls();
               updateIntervalTableHighlight();
             };
-    // Markeer huidig interval in de tabel onderaan
-    function updateIntervalTableHighlight() {
-      const table = document.getElementById('intervalTable');
-      if (!table) return;
-      // Zoek alle rijen behalve de header
-      const rows = table.querySelectorAll('tr');
-      rows.forEach((row, idx) => {
-        if (idx === 0) return; // header
-        if (idx-1 === current) {
-          row.style.fontWeight = 'bold';
-          row.style.background = '#ffe082';
-        } else {
-          row.style.fontWeight = '';
-          row.style.background = '';
-        }
-      });
-    }
           }
-        }).catch(() => {
+          // Maak intervallen klikbaar tijdens actieve training
+          setTimeout(() => {
+            const table = document.getElementById('intervalTable').querySelector('table');
+            if (table && document.getElementById('intervalSection').style.display !== 'none') {
+              const rows = table.querySelectorAll('tr');
+              rows.forEach((row, idx) => {
+                if (idx === 0) return; // header
+                row.onclick = () => {
+                  if (!intervals.length) return;
+                  // Stop spraak en geluiden
+                  window.speechSynthesis.cancel();
+                  if (activeWhistle && typeof activeWhistle.stop === 'function') {
+                    try { activeWhistle.stop(); } catch(e) {}
+                  }
+                  current = idx - 1;
+                  // Zet timer op 5s voor het einde van het gekozen interval
+                  const duration = intervals[current].duration;
+                  timeLeft = duration > 5 ? 5 : duration;
+                  intervalEndTime = Date.now() + timeLeft * 1000;
+                  // Update intervalnaam direct
+                  const { name, duration: dur } = intervals[current];
+                  let durationText = dur >= 120 ? `${Math.round(dur/60)} min` : `${dur}s`;
+                  intervalName.textContent = `${name} (${durationText})`;
+                  // Update notificatie direct
+                  let trainingTitle = 'Training';
+                  if (typeof selectedDayIndex === 'number' && typeof selectedEventIndex === 'number' && daysGlobal[selectedDayIndex] && daysGlobal[selectedDayIndex].events[selectedEventIndex]) {
+                    trainingTitle = daysGlobal[selectedDayIndex].events[selectedEventIndex].SUMMARY || 'Training';
+                  }
+                  updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
+                  updateTimer();
+                  // Herstart de interval-timer als hij gepauzeerd was
+                  if (paused) {
+                    paused = false;
+                    pauseBtn.textContent = "Pauzeer";
+                    timer = setInterval(tick, 1000);
+                  }
+                  showNextInterval();
+                  updateIntervalControls();
+                  updateIntervalTableHighlight();
+                };
+              });
+              // Markeer huidig interval direct na renderen
+              updateIntervalTableHighlight();
+            }
+          }, 0);
+        }).catch(function() {
           document.getElementById('intervalTable').innerHTML = '<i>Geen intervalgegevens beschikbaar</i>';
         });
       }
