@@ -589,18 +589,22 @@ function playWhistle() {
                 if (timeLeft <= 0) {
                   clearInterval(timer);
                   // Nu de echte interval starten
-                  current = 1;
-                  timeLeft = intervals[current].duration;
-                  intervalEndTime = Date.now() + timeLeft * 1000;
-                  intervalName.textContent = `${name} (${durationText})`;
-                  updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
-                  updateTimer();
-                  paused = false;
-                  pauseBtn.textContent = "Pauzeer";
-                  timer = setInterval(tick, 1000);
-                  showNextInterval();
-                  updateIntervalControls();
-                  updateIntervalTableHighlight();
+                  setTimeout(() => {
+                    current = 1;
+                    const { name, duration: dur } = intervals[current];
+                    let durationText = dur >= 120 ? `${Math.round(dur/60)} min` : `${dur}s`;
+                    intervalName.textContent = `${name} (${durationText})`;
+                    timeLeft = intervals[current].duration;
+                    intervalEndTime = Date.now() + timeLeft * 1000;
+                    updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
+                    updateTimer();
+                    paused = false;
+                    pauseBtn.textContent = "Pauzeer";
+                    timer = setInterval(tick, 1000);
+                    showNextInterval();
+                    updateIntervalControls();
+                    updateIntervalTableHighlight();
+                  }, 100); // kleine delay zodat 0 niet blijft hangen
                 }
               }, 1000);
               showNextInterval();
