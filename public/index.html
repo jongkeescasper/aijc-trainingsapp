@@ -574,9 +574,8 @@ function playWhistle() {
             const table = document.getElementById('intervalTable').querySelector('table');
             if (table && document.getElementById('intervalSection').style.display !== 'none') {
               const rows = table.querySelectorAll('tr');
-              rows.forEach((row, idx) => {
-                if (idx === 0) return; // header
-                row.addEventListener('click', function(e) {
+              for (let idx = 1; idx < rows.length; idx++) {
+                rows[idx].onclick = function(e) {
                   e.preventDefault();
                   e.stopPropagation();
                   if (!intervals.length) return;
@@ -609,8 +608,8 @@ function playWhistle() {
                   showNextInterval();
                   updateIntervalControls();
                   updateIntervalTableHighlight();
-                });
-              });
+                };
+              }
               // Markeer huidig interval direct na renderen
               updateIntervalTableHighlight();
             }
