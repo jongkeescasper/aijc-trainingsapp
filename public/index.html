@@ -565,12 +565,11 @@ function playWhistle() {
               current = 0;
               document.getElementById('intervalSection').style.display = '';
               document.getElementById('weekOverview').style.display = 'none';
-              // Start met een "pre-start" van 5s, daarna de echte interval
-              let firstDuration = intervals[0]?.duration || 0;
-              timeLeft = 5;
+              // Start met virtuele pre-start van 5s, daarna de echte interval
+              timeLeft = intervals[0].duration;
               intervalEndTime = Date.now() + timeLeft * 1000;
               // Update intervalnaam direct (toon als "Start over 5s...")
-              const { name, duration: dur } = intervals[0];
+              const { name, duration: dur } = intervals[1];
               let durationText = dur >= 120 ? `${Math.round(dur/60)} min` : `${dur}s`;
               intervalName.textContent = `Start ${name} (${durationText}) over 5s...`;
               // Update notificatie direct
