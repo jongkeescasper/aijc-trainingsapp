@@ -562,14 +562,14 @@ function playWhistle() {
               current = 0;
               document.getElementById('intervalSection').style.display = '';
               document.getElementById('weekOverview').style.display = 'none';
-              // Altijd 5s aftellen voor de eerste interval
+              // Start met een "pre-start" van 5s, daarna de echte interval
               let firstDuration = intervals[0]?.duration || 0;
-              timeLeft = firstDuration > 5 ? 5 : firstDuration;
+              timeLeft = 5;
               intervalEndTime = Date.now() + timeLeft * 1000;
-              // Update intervalnaam direct
+              // Update intervalnaam direct (toon als "Start over 5s...")
               const { name, duration: dur } = intervals[0];
               let durationText = dur >= 120 ? `${Math.round(dur/60)} min` : `${dur}s`;
-              intervalName.textContent = `${name} (${durationText})`;
+              intervalName.textContent = `Start ${name} (${durationText}) over 5s...`;
               // Update notificatie direct
               let trainingTitle = 'Training';
               if (typeof selectedDayIndex === 'number' && typeof selectedEventIndex === 'number' && daysGlobal[selectedDayIndex] && daysGlobal[selectedDayIndex].events[selectedEventIndex]) {
@@ -577,11 +577,29 @@ function playWhistle() {
               }
               updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
               updateTimer();
-              // Herstart de interval-timer als hij gepauzeerd was
               clearInterval(timer);
               paused = false;
               pauseBtn.textContent = "Pauzeer";
-              timer = setInterval(tick, 1000);
+              timer = setInterval(function preStartTick() {
+                timeLeft--;
+                updateTimer();
+                updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
+                if (timeLeft <= 0) {
+                  clearInterval(timer);
+                  // Nu de echte interval starten
+                  timeLeft = firstDuration;
+                  intervalEndTime = Date.now() + timeLeft * 1000;
+                  intervalName.textContent = `${name} (${durationText})`;
+                  updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
+                  updateTimer();
+                  paused = false;
+                  pauseBtn.textContent = "Pauzeer";
+                  timer = setInterval(tick, 1000);
+                  showNextInterval();
+                  updateIntervalControls();
+                  updateIntervalTableHighlight();
+                }
+              }, 1000);
               showNextInterval();
               updateIntervalControls();
               updateIntervalTableHighlight();
