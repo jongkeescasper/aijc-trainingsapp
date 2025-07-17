@@ -581,8 +581,10 @@ function playWhistle() {
               console.log('[DEBUG] Geen table gevonden in intervalTable');
               return;
             }
-            if (document.getElementById('intervalSection').style.display === 'none') {
-              console.log('[DEBUG] intervalSection niet zichtbaar, geen click handlers');
+            const intervalSection = document.getElementById('intervalSection');
+            console.log('[DEBUG] intervalSection style.display:', intervalSection.style.display, 'offsetHeight:', intervalSection.offsetHeight, 'offsetParent:', intervalSection.offsetParent);
+            if (intervalSection.style.display === 'none' || intervalSection.offsetHeight === 0 || !intervalSection.offsetParent) {
+              console.log('[DEBUG] intervalSection niet zichtbaar (display/height/parent), geen click handlers');
               return;
             }
             const rows = table.querySelectorAll('tr');
