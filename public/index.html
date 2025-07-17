@@ -94,9 +94,11 @@
       if (!table) return;
       // Zoek alle rijen behalve de header
       const rows = table.querySelectorAll('tr');
+      // Sla virtuele interval over in highlight (current==0 is virtueel)
       rows.forEach((row, idx) => {
         if (idx === 0) return; // header
-        if (idx-1 === current) {
+        // idx-1 komt overeen met intervals[1+] (virtueel is intervals[0])
+        if (current > 0 && idx-1 === current-1) {
           row.style.fontWeight = 'bold';
           row.style.background = '#ffe082';
         } else {
@@ -543,6 +545,7 @@ function playWhistle() {
           let html = '<table style="margin:1em auto;border-collapse:collapse;">';
           html += '<tr><th style="padding:0.3em 1em;">Interval</th><th style="padding:0.3em 1em;">Duur</th></tr>';
           parsed.forEach((step, i) => {
+            // Sla virtuele interval over in tabel
             let durationText = step.duration >= 120 ? `${Math.round(step.duration/60)} min` : `${step.duration}s`;
             html += `<tr data-interval="${i}" style="cursor:pointer;"><td style="padding:0.3em 1em;">${step.name}</td><td style="padding:0.3em 1em;">${durationText}</td></tr>`;
           });
@@ -558,7 +561,7 @@ function playWhistle() {
             const zwoUrl = `https://aijc-trainingsapp.onrender.com/zwo/${match.id}`;
             startBtn.onclick = async () => {
               const zwoText = await fetch(zwoUrl).then(res => res.text());
-              intervals = parseZWO(zwoText);
+              intervals = [{ name: 'Pre-start', duration: 5, virtual: true }, ...parseZWO(zwoText)];
               current = 0;
               document.getElementById('intervalSection').style.display = '';
               document.getElementById('weekOverview').style.display = 'none';
@@ -625,7 +628,7 @@ function playWhistle() {
                   try { activeWhistle.stop(); } catch(e) {}
                 }
                 // Spoel direct door naar 5s voor het gekozen interval
-                current = idx - 1;
+                current = idx; // idx-1 is eerste echte interval, idx=1 is intervals[1]
                 const duration = intervals[current].duration;
                 timeLeft = duration > 5 ? 5 : duration;
                 intervalEndTime = Date.now() + timeLeft * 1000;
