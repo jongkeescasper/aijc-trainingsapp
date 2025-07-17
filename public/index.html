@@ -583,8 +583,8 @@ function playWhistle() {
                   if (activeWhistle && typeof activeWhistle.stop === 'function') {
                     try { activeWhistle.stop(); } catch(e) {}
                   }
+                  // Spoel direct door naar 5s voor het gekozen interval
                   current = idx - 1;
-                  // Zet timer op 5s voor het einde van het gekozen interval
                   const duration = intervals[current].duration;
                   timeLeft = duration > 5 ? 5 : duration;
                   intervalEndTime = Date.now() + timeLeft * 1000;
@@ -600,11 +600,10 @@ function playWhistle() {
                   updateTrainingNotification(trainingTitle, name, formatTime(timeLeft));
                   updateTimer();
                   // Herstart de interval-timer als hij gepauzeerd was
-                  if (paused) {
-                    paused = false;
-                    pauseBtn.textContent = "Pauzeer";
-                    timer = setInterval(tick, 1000);
-                  }
+                  clearInterval(timer);
+                  paused = false;
+                  pauseBtn.textContent = "Pauzeer";
+                  timer = setInterval(tick, 1000);
                   showNextInterval();
                   updateIntervalControls();
                   updateIntervalTableHighlight();
