@@ -667,9 +667,8 @@ function playWhistle() {
       }
     };
     // Patch: na elke intervalwissel
-    // Patch: na elke intervalwissel
-    // Gebruik let zodat we kunnen overschrijven
-    let origStartInterval = startInterval;
+    // Gebruik var zodat we kunnen overschrijven in alle browsers
+    var origStartInterval = startInterval;
     function patchedStartInterval() {
       origStartInterval();
       updateIntervalTableHighlight();
